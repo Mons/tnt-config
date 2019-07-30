@@ -42,6 +42,7 @@ function M.new(M,options)
 	-- self.prefix    = options.prefix or ''
 	self.timeout   = options.timeout or 1
 	self.client    = http_client -- .new() - it fix for 1.6 also client: -> clent.
+	self.boolean_auto = options.boolean_auto
 	if options.login then
 		self.authorization = "Basic "..digest.base64_encode(options.login..":"..(options.password or ""))
 		self.headers = { authorization = self.authorization }
@@ -162,6 +163,27 @@ local function recursive_extract(cut, node, storage)
 	if not storage then return _storage[''] end
 end
 
+local function deep_cast(src, cast_func)
+	if not src then error("Call to deep_cast with bad args", 2) end
+	for k, v in pairs(src) do
+		if type(v) == 'table' then
+			deep_cast(src[k], cast_func)
+		else
+			src[k] = cast_func(src[k])
+		end
+	end
+end
+
+local function toboolean(v)
+	if v == 'true' then
+		return true
+	elseif v == 'false' then
+		return false
+	else
+		return v
+	end
+end
+
 function M:list(keyspath)
 	local res = self:request("GET","keys"..keyspath, { recursive = true })
 	-- print(yaml.encode(res))
@@ -169,6 +191,9 @@ function M:list(keyspath)
 		local result = recursive_extract(keyspath,res.node)
 		-- todo: make it with metatable
 		-- print(yaml.encode(result))
+		if self.boolean_auto then
+			deep_cast(result, toboolean)
+		end
 		return result
 		-- for _,n in pairs(res.node) do
 		-- 	print()
